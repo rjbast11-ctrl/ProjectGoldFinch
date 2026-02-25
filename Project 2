@@ -1,0 +1,97 @@
+import java.sql.*;
+import java.util.Scanner;
+
+public class MallManager {
+    // UPDATED: Added /mall_db to the URL
+    static final String DB_URL = "jdbc:mysql://localhost:3306/mall_db"; 
+    static final String USER = "root";
+    static final String PASS = "your_password";
+
+    public static void main(String[] args) {
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+             Scanner scanner = new Scanner(System.in)) {
+            
+            while (true) {
+                System.out.println("\n--- Mall Management System ---");
+                System.out.println("1. Add Retailer | 2. Delete Shop | 3. Update Rent | 4. View Malls | 5. Shops by Mall | 6. Financials | 0. Exit");
+                System.out.print("> ");
+
+                if (!scanner.hasNextInt()) break;
+                int choice = scanner.nextInt();
+                scanner.nextLine(); // Consume newline
+
+                switch (choice) {
+                    case 1: // CREATE
+                        System.out.print("Enter Tax ID: "); String tid = scanner.nextLine();
+                        System.out.print("Enter Company Name: "); String name = scanner.nextLine();
+                        String sqlAdd = "INSERT INTO Retailers (Tax_ID, Company_Name) VALUES (?, ?)";
+                        try (PreparedStatement pstmtAdd = conn.prepareStatement(sqlAdd)) {
+                            pstmtAdd.setString(1, tid);
+                            pstmtAdd.setString(2, name);
+                            pstmtAdd.executeUpdate();
+                            System.out.println("Retailer added.");
+                        }
+                        break;
+
+                    case 2: // DELETE
+                        System.out.print("Enter Shop ID to delete: "); int sid = scanner.nextInt();
+                        String sqlDel = "DELETE FROM Shops WHERE Shop_ID = ?";
+                        try (PreparedStatement pstmtDel = conn.prepareStatement(sqlDel)) {
+                            pstmtDel.setInt(1, sid);
+                            int rows = pstmtDel.executeUpdate();
+                            System.out.println(rows > 0 ? "Shop deleted." : "Shop not found.");
+                        }
+                        break;
+
+                    case 3: // UPDATE
+                        System.out.print("Enter Shop ID: "); int usid = scanner.nextInt();
+                        System.out.print("Enter New Base Rent: "); double rent = scanner.nextDouble();
+                        String sqlUpd = "UPDATE Shops SET Flat_Rent_Base = ? WHERE Shop_ID = ?";
+                        try (PreparedStatement pstmtUpd = conn.prepareStatement(sqlUpd)) {
+                            pstmtUpd.setDouble(1, rent);
+                            pstmtUpd.setInt(2, usid);
+                            pstmtUpd.executeUpdate();
+                            System.out.println("Rent updated.");
+                        }
+                        break;
+
+                    case 4: // QUERY 1
+                        try (Statement stmt = conn.createStatement();
+                             ResultSet rs1 = stmt.executeQuery("SELECT * FROM Malls")) {
+                            while(rs1.next()) System.out.println(rs1.getInt("Mall_ID") + ": " + rs1.getString("Mall_Name"));
+                        }
+                        break;
+
+                    case 5: // QUERY 2
+                        System.out.print("Enter Mall ID: "); int mid = scanner.nextInt();
+                        String sqlQ2 = "SELECT Shop_Number, Tax_ID FROM Shops WHERE Mall_ID = ?";
+                        try (PreparedStatement pstmtQ2 = conn.prepareStatement(sqlQ2)) {
+                            pstmtQ2.setInt(1, mid);
+                            try (ResultSet rs2 = pstmtQ2.executeQuery()) {
+                                while(rs2.next()) System.out.printf("Shop: %s | Retailer: %s%n", rs2.getString(1), rs2.getString(2));
+                            }
+                        }
+                        break;
+
+                    case 6: // QUERY 3
+                        String sqlQ3 = "SELECT Shop_Number, (Flat_Rent_Base / Square_Meters) as Rate FROM Shops";
+                        try (Statement stmt3 = conn.createStatement();
+                             ResultSet rs3 = stmt3.executeQuery(sqlQ3)) {
+                            System.out.println("Rent per Square Meter:");
+                            while(rs3.next()) System.out.println(rs3.getString(1) + ": $" + String.format("%.2f", rs3.getDouble(2)));
+                        }
+                        break;
+
+                    case 0: 
+                        System.out.println("Exiting...");
+                        return;
+                    
+                    default:
+                        System.out.println("Invalid choice.");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
